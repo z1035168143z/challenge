@@ -1,13 +1,12 @@
 package io.zzr.nio.aop;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.zzr.nio.utils.JSONObject;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.aspectj.lang.annotation.Before;
 import org.aspectj.lang.annotation.Pointcut;
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -44,8 +43,13 @@ public class ControllerAspect {
             log.info("[{}]:被调用。入参为:[{}],响应结果:[{}],耗时:[{}]", proceedingJoinPoint.toShortString(), "***",
                     JSONObject.toJsonString(ob), System.currentTimeMillis() - startTime);
         } else {
-            log.info("[{}]:被调用。入参为:[{}],响应结果:[{}],耗时:[{}]", proceedingJoinPoint.toShortString(), JSONObject.toJsonString(request.getParameterMap()),
-                    JSONObject.toJsonString(ob), System.currentTimeMillis() - startTime);
+            if (HttpMethod.POST.matches(request.getMethod())) {
+                log.info("[{}]:被调用。入参为:[{}],响应结果:[{}],耗时:[{}]", proceedingJoinPoint.toShortString(), JSONObject.toJsonString(proceedingJoinPoint.getArgs()),
+                        JSONObject.toJsonString(ob), System.currentTimeMillis() - startTime);
+            } else {
+                log.info("[{}]:被调用。入参为:[{}],响应结果:[{}],耗时:[{}]", proceedingJoinPoint.toShortString(), JSONObject.toJsonString(request.getParameterMap()),
+                        JSONObject.toJsonString(ob), System.currentTimeMillis() - startTime);
+            }
         }
 
         return ob;

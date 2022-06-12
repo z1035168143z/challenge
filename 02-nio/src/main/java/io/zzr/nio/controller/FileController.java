@@ -8,6 +8,7 @@ import lombok.SneakyThrows;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -16,7 +17,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 /**
  * 文件
@@ -78,11 +78,10 @@ public class FileController {
 
     @SneakyThrows
     @GetMapping("download")
-    public void fileDownload(HttpServletRequest request, HttpServletResponse response) {
+    public ResponseEntity<?> fileDownload(HttpServletRequest request, HttpServletResponse response) {
         String downloadFilePath = request.getParameter("downloadFilePath");
         File downLoadFile = new File(downloadFilePath);
         if (!downLoadFile.exists()) {
-            response.setStatus(HttpStatus.OK.value());
             response.getWriter().println("file not found");
         } else {
             try (InputStream inputStream = new FileInputStream(downLoadFile);
@@ -92,7 +91,24 @@ public class FileController {
                 try {
                     String range = request.getHeader(HttpHeaders.RANGE);
                     if (StringUtils.isNotBlank(range)) {
+                        range = range.substring(range.lastIndexOf("=") + 1).trim();
+                        String[] rangeArray = range.split("-");
+                        if (rangeArray.length == 1) {
+                            //Example: bytes=1024-
+                            if (range.endsWith("-")) {
+                                startPosition = Long.parseLong(rangeArray[0]);
+                            } else { //Example: bytes=-1024
+//                                endByte = Long.parseLong(rangeArray[0]);
+                            }
+                        }
+                        //Example: bytes=2048-4096
+                        else if (rangeArray.length == 2) {
+                            startPosition = Long.parseLong(rangeArray[0]);
+//                            endByte = Long.parseLong(rangeArray[1]);
+                        }
+
                         startPosition = Long.parseLong(range.replaceAll("bytes=", "").replaceAll("-", ""));
+                        response.setStatus(HttpServletResponse.SC_PARTIAL_CONTENT);
                     }
                 } catch (NumberFormatException e) {
                     e.printStackTrace();
@@ -107,13 +123,13 @@ public class FileController {
                 int len;
                 while ((len = inputStream.read(cacheByte)) != -1) {
                     ops.write(cacheByte, 0, len);
-                    TimeUnit.MILLISECONDS.sleep(500);
                 }
             } catch (IOException e) {
                 e.printStackTrace();
                 response.getWriter().println(e.getMessage());
             }
         }
+        return new ResponseEntity<>(HttpStatus.PARTIAL_CONTENT);
     }
 
     @SneakyThrows
