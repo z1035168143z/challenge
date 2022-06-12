@@ -28,7 +28,7 @@ public class FtpController {
     @GetMapping("main")
     public ModelAndView main() {
         ModelAndView modelAndView = new ModelAndView("ftp");
-        modelAndView.addObject("pwd", "G:/workspace/codes");
+        modelAndView.addObject("pwd", "G:/workspace/fileSystem/fullFile/");
 
         return modelAndView;
     }

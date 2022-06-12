@@ -6,15 +6,17 @@ import io.zzr.nio.vo.FileUploadResult;
 import io.zzr.nio.vo.JsonResultVo;
 import lombok.SneakyThrows;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.PostConstruct;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 文件
@@ -71,6 +73,47 @@ public class FileController {
         }
 
         return JsonResultVo.buildSuccess(FileUploadResult.partUploadSuccess());
+    }
+
+
+    @SneakyThrows
+    @GetMapping("download")
+    public void fileDownload(HttpServletRequest request, HttpServletResponse response) {
+        String downloadFilePath = request.getParameter("downloadFilePath");
+        File downLoadFile = new File(downloadFilePath);
+        if (!downLoadFile.exists()) {
+            response.setStatus(HttpStatus.OK.value());
+            response.getWriter().println("file not found");
+        } else {
+            try (InputStream inputStream = new FileInputStream(downLoadFile);
+                 OutputStream ops = response.getOutputStream()) {
+
+                long startPosition = 0;
+                try {
+                    String range = request.getHeader(HttpHeaders.RANGE);
+                    if (StringUtils.isNotBlank(range)) {
+                        startPosition = Long.parseLong(range.replaceAll("bytes=", "").replaceAll("-", ""));
+                    }
+                } catch (NumberFormatException e) {
+                    e.printStackTrace();
+                }
+                inputStream.skip(startPosition);
+                response.setHeader(HttpHeaders.ACCEPT_RANGES, "bytes");
+                response.setHeader(HttpHeaders.CONTENT_RANGE, "bytes " + startPosition + "-" + (downLoadFile.length() - 1) + "/" + downLoadFile.length());
+                response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment;fileName=" + downLoadFile.getName());
+                response.setContentLength((int) downLoadFile.length());
+
+                byte[] cacheByte = new byte[1024 * 1024];
+                int len;
+                while ((len = inputStream.read(cacheByte)) != -1) {
+                    ops.write(cacheByte, 0, len);
+                    TimeUnit.MILLISECONDS.sleep(500);
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                response.getWriter().println(e.getMessage());
+            }
+        }
     }
 
     @SneakyThrows
